@@ -3,19 +3,14 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.cloudhoist</groupId>
-    <artifactId>pallet-crates</artifactId>
-    <version>0.5.1-SNAPSHOT</version>
-    <relativePath>..</relativePath>
+    <artifactId>pallet-crate-pom</artifactId>
+    <version>0.7.0-SNAPSHOT</version>
   </parent>
+  <scm>
+    <connection>scm:git:git://github.com/pallet/maven-crate.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/pallet/maven-crate.git</developerConnection>
+    <url>https://github.com/pallet/maven-crate</url>
+  </scm>
   <artifactId>maven</artifactId>
-  <version>0.5.1-SNAPSHOT</version>
-
-  <dependencies>
-    <dependency>
-      <groupId>org.cloudhoist</groupId>
-      <artifactId>automated-admin-user</artifactId>
-      <optional>true</optional>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
+  <version>0.7.0-SNAPSHOT</version>
 </project>
