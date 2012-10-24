@@ -17,11 +17,19 @@
   {"2.2.1" "c581a15cb0001d9b771ad6df7c8156f8"
    "3.0.3" "507828d328eb3735103c0492443ef0f0"})
 
+
 (defn maven-download-url
   [version]
-  (str "http://mirrors.ibiblio.org/pub/mirrors/apache/"
-       "maven/binaries/apache-maven-" version "-bin.tar.gz"))
+  (let [major (first
+               (clojure.string/split version #"\."))]
+    ;; links are of this format:
+    ;; http://mirrors.ibiblio.org/apache/maven/maven-2/2.2.1/binaries/apache-maven-2.2.1-bin.tar.gz
+    (format "http://mirrors.ibiblio.org/apache/maven/maven-%s/%s/binaries/apache-maven-%s-bin.tar.gz"
+            major version version)))
 
+
+;; TODO: this needs automated testing because the maven urls change
+;; every now and then (toni Oct 2012)
 (defn download
   [session & {:keys [maven-home version]
               :or {maven-home "/opt/maven2" version "3.0.3"}
