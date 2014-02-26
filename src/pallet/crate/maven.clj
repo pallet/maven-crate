@@ -1,10 +1,10 @@
 (ns pallet.crate.maven
   (:require
-   [pallet.session :as session]
-   [pallet.action :as action]
-   [pallet.action.package :as package]
-   [pallet.action.package.jpackage :as jpackage]
-   [pallet.action.remote-directory :as remote-directory])
+   [pallet.actions :as actions]
+   [pallet.crate :as crate]
+   [pallet.crate.package.jpackage :as jpackage]
+   [pallet.node :as node]
+   [pallet.utils :refer [apply-map]])
   (:use
    pallet.thread-expr))
 
@@ -30,34 +30,33 @@
 
 ;; TODO: this needs automated testing because the maven urls change
 ;; every now and then (toni Oct 2012)
-(defn download
-  [session & {:keys [maven-home version]
+(crate/defplan download
+  [& {:keys [maven-home version]
               :or {maven-home "/opt/maven2" version "3.0.3"}
               :as options}]
-  (remote-directory/remote-directory
-   session
+  (actions/remote-directory
    maven-home
    :url (maven-download-url version)
    :md5 (maven-download-md5 version)
    :unpack :tar :tar-options "xz"))
 
 
-(defn package
-  [session & {:keys [package-name] :or {package-name "maven2"} :as options}]
-  (let [use-jpackage (or
-                      (= :amzn-linux (session/os-family session))
+(crate/defplan package
+  [& {:keys [package-name] :or {package-name "maven2"} :as options}]
+  (let [os-family (node/os-family (crate/target-node))
+        os-version (node/os-version (crate/target-node))
+        use-jpackage (or
+                      (= :amzn-linux os-family)
                       (and
-                       (= :centos (session/os-family session))
+                       (= :centos os-family)
                        (re-matches
-                        #"5\.[0-5]" (session/os-version session))))
+                        #"5\.[0-5]" os-version)))
         options (if use-jpackage
                   (assoc options
                     :enable ["jpackage-generic" "jpackage-generic-updates"])
                   options)]
-    (->
-     session
-     (when-> use-jpackage
+    (when use-jpackage
       (jpackage/add-jpackage :releasever "5.0")
       (jpackage/package-manager-update-jpackage)
       (jpackage/jpackage-utils))
-     (apply-map-> package/package package-name options))))
+    (apply-map actions/package package-name options)))

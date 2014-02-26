@@ -1,0 +1,8 @@
+{:header "maven"
+ :title "A pallet crate to install and configure maven."
+ :git-repo "https://github.com/pallet/maven-crate"
+ :api-docs "http://palletops.com/maven-crate/0.8/api"
+ :annotated-docs "http://palletops.com/maven-crate/0.8/annotated/uberdoc.html"
+ :tag-prefix ""
+ :versions [#_{:pallet "0.8.0-RC.7" :version "0.8.0-alpha.3"}
+            ]}
