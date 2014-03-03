@@ -1,7 +1,7 @@
 ### Dependency Information
 
 ```clj
-:dependencies [[/ ""]]
+:dependencies [[com.palletops/pallet "0.8.0-RC.7"]]
 ```
 
 ### Releases
