@@ -6,7 +6,8 @@
    [pallet.api :as api]
    [pallet.actions :as actions]
    [pallet.crate :as crate]
-   [pallet.crate.maven :as maven]))
+   [pallet.crate.maven :as maven]
+   [pallet.script.lib :as lib]))
 
 #_(deftest download-test
   (is (= (first
@@ -22,40 +23,33 @@
         {}
         (maven/download :version "2.2.1")))))
 
+(defn maven-test-spec [version-vec]
+  (api/server-spec
+   :extends []
+   :phases
+   {:configure (api/plan-fn (maven/install))}))
 
-
-#_(def maven-test-spec
+(defn maven-package-test-spec [version-spec]
   (api/server-spec
    :phases
-   {:configure (api/plan-fn
-                (maven/package))
+   {:settings (api/plan-fn
+               (maven/settings (maven/package-settings version-spec) {}))
+    :install (api/plan-fn (maven/install {}))
     :verify (api/plan-fn
              (actions/exec-checked-script
-              "check mvn command exists"
+              "check the 'mvn' command exists"
               ("mvn" -version)))}))
 
-(crate/defplan verify []
-  (actions/exec-checked-script
-   "check the 'mvn' command exists"
-   ("mvn" -version)))
-
-(def maven-test-spec
-  (api/server-spec
-   :phases
-   {:configure (api/plan-fn (maven/install))
-    :verify (api/plan-fn (verify))}))
-
-(def maven-package-test-spec
-  (api/server-spec
-   :extends [maven-test-spec]
-   :phases
-   {:settings (api/plan-fn
-               (maven/package-settings [3 2 1]))}))
-
-(def maven-archive-test-spec
-  (api/server-spec
-   :extends [maven-test-spec]
-   :phases
-   {:settings (api/plan-fn
-               (maven/settings (maven/archive-settings "3.2.1")))}))
+(defn maven-archive-test-spec [version-spec]
+  (let [[maj _ _] version-spec]
+    (api/server-spec
+     :extends [(maven/server-spec version-spec)]
+     :phases
+     {:verify
+      (api/plan-fn
+       (let [mvn-path (format "/opt/maven%s/bin/mvn" maj)]
+         (actions/exec-checked-script
+          (str "Verify mvn exists in " mvn-path)
+          (when-not (file-exists? ~mvn-path)
+            ("exit" 1)))))})))
 

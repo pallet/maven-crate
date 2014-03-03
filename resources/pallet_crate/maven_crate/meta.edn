@@ -1,5 +1,5 @@
 {:header "maven"
- :title "A pallet crate to install and configure maven."
+ :title "This crate installs [Apache Maven](http://maven.apache.org). Supports Maven version 2 and 3.G"
  :git-repo "https://github.com/pallet/maven-crate"
  :api-docs "http://palletops.com/maven-crate/0.8/api"
  :annotated-docs "http://palletops.com/maven-crate/0.8/annotated/uberdoc.html"

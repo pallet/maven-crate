@@ -1,6 +1,7 @@
 (ns pallet.crate.maven
   (:require
    [pallet.actions :as actions]
+   [pallet.api :as api]
    [pallet.compute :refer [os-hierarchy]]
    [pallet.crate :as crate]
    [pallet.crate.package.jpackage :as jpackage]
@@ -10,60 +11,10 @@
    [pallet.version-dispatch :as version]))
 
 
-#_(def maven-parameters
- {:maven-home "/opt/maven2"
-  :version "3.0.3"})
-
-#_(defn maven-download-md5
-  [version]
-  {"2.2.1" "c581a15cb0001d9b771ad6df7c8156f8"
-   "3.0.3" "507828d328eb3735103c0492443ef0f0"})
-
-
-#_(defn maven-download-url
-  [version]
-  (let [major (first
-               (clojure.string/split version #"\."))]
-    (format (:download-url-template *defaults*) major version version)))
-
-
-;; TODO: this needs automated testing because the maven urls change
-;; every now and then (toni Oct 2012)
-#_(crate/defplan download
-  [& {:keys [maven-home version]
-              :or {maven-home "/opt/maven2" version "3.0.3"}
-              :as options}]
-  (actions/remote-directory
-   maven-home
-   :url (maven-download-url version)
-   :md5 (maven-download-md5 version)
-   :unpack :tar :tar-options "xz"))
-
-
-#_(crate/defplan package
-  [& {:keys [package-name] :or {package-name "maven2"} :as options}]
-  (let [os-family (node/os-family (crate/target-node))
-        os-version (node/os-version (crate/target-node))
-        use-jpackage (or
-                      (= :amzn-linux os-family)
-                      (and
-                       (= :centos os-family)
-                       (re-matches
-                        #"5\.[0-5]" os-version)))
-        options (if use-jpackage
-                  (assoc options
-                    :enable ["jpackage-generic" "jpackage-generic-updates"])
-                  options)]
-    (when use-jpackage
-      (jpackage/add-jpackage :releasever "5.0")
-      (jpackage/package-manager-update-jpackage)
-      (jpackage/jpackage-utils))
-    (apply-map actions/package package-name options)))
-
-
 (def ^:dynamic *defaults*
-  {:package-name "maven2"
-   :jpackage-releasever "5.0"
+  {:package-name {2 "maven2"
+                  3 "maven3"}
+   :jpackage-releasever "6.0"
    ;; download urls have this format:
    ;; http://mirrors.ibiblio.org/apache/maven/maven-2/2.2.1/binaries/apache-maven-2.2.1-bin.tar.gz
    :download-url-template
@@ -72,17 +23,15 @@
    ;; http://www.apache.org/dist/maven/maven-3/3.2.1/binaries/apache-maven-3.2.1-bin.tar.gz.md5
    :md5-url-template
    "http://www.apache.org/dist/maven/maven-%s/%s/binaries/apache-maven-%s-bin.tar.gz.md5"
-   :install-dir "/opt/maven2"
-   :version "3.2.1"})
+   :install-dir-template "/opt/maven%s"
+   })
 
 (defn default [k]
   (let [k (if (keyword? k) k (keyword k))]
     (when-not (some #{k} (keys *defaults*))
       (throw
-       (ex-info
-        {:type :internal
-         :message
-         (format "The default %s does not exist in *defaults*" k)})))
+       (ex-info  (format "The default %s does not exist in *defaults*" k)
+        {:type :internal })))
     (k *defaults*)))
 
 (defn maven-url
@@ -101,51 +50,108 @@
     (format template major version version)))
 
 
-(crate/defplan archive-settings
-  "Settings for when installing from archive"
-  [version]
-  {:install-strategy :archive
-   :install-dir (default :install-dir)
-   :install-source
-   {:url (maven-url (default :download-url-template) version)
-    :md5-url (maven-url (default :md5-url-template) version)
-    :unpack :tar
-    :tar-options "xz"}})
 
 (crate/defplan jpackage-settings
   "Settings for when installing via jpackage"
-  []
+  [package-name]
   {:install-strategy :package-source
    :repository {:id :jpackage :releasever (default :jpackage-releasever)}
-   :packages [(default :package-name)]})
+   :packages [package-name]})
 
-(version/defmulti-version-plan package-settings [os os-version version])
+(version/defmulti-version-plan package-settings [version])
 
 (version/defmethod-version-plan package-settings
   {:os :amzn-linux}
-  [_ _ _]
-  (jpackage-settings ))
+  [_ _ [maj _ _]]
+  (jpackage-settings (get (default :package-name) maj)))
 
 (version/defmethod-version-plan package-settings
   {:os :centos :os-version [5]}
-  [_ _ _]
-  (jpackage-settings))
+  [_ _ [maj _ _]]
+  (jpackage-settings (get (default :package-name) maj)))
 
 (version/defmethod-version-plan package-settings
   {:os :linux}
-  [_ _ _]
+  [_ _ [maj _ _]]
   {:install-strategy :packages
-   :packages [(:package-name *defaults*)]})
+   :packages [(get (default :package-name) maj)]})
 
-(version/defmulti-version-plan archive-settings [os os-version version])
+(version/defmethod-version-plan package-settings
+  {:os :debian :version [3]}
+  [_ os-version _]
+  {:install-strategy :package-source
+   :repository {:id :debian-backports}
+   :packages ["maven3"]})
+
+(version/defmethod-version-plan package-settings
+  {:os :ubuntu :os-version [13]}
+  [_ _ _]
+  (throw (ex-info
+          "Installing maven via packages is not yet supported on Ubuntu 13+"
+          {:type :feature-not-available
+           :crate :maven})))
+
+(version/defmethod-version-plan package-settings
+  {:os :ubuntu :version [3]}
+  [_ _ _]
+  {:install-strategy :package-source
+   :package-source {:apt {:url "ppa:natecarlson/maven3"}
+                    :name "maven3"}
+   :packages ["maven3"]
+   :link ["/usr/bin/mvn3" "/usr/bin/mvn"]})
+
+(version/defmethod-version-plan package-settings
+  {:os :centos :version [3]}
+  [_ _ [maj _ _]]
+  (throw (ex-info
+          "Installing maven via packages is not supported for CentOS"
+          {:type :feature-not-available
+           :crate :maven}))
+  ;; this is broken. The package installs correctly, but a logging
+  ;; config file is missing.
+  #_{:install-strategy :package-source
+   :package-source {:yum { :url "http://repos.fedorapeople.org/repos/dchen/apache-maven/epel-$releasever/$basearch/"
+                          :enabled "1"}
+                    :name "epel-maven"}
+   :packages ["apache-maven"]})
+
+(version/defmulti-version-plan archive-settings [version])
 
 (version/defmethod-version-plan archive-settings
   {:os :linux}
-  [_ _ version]
-  (archive-settings version))
+  [_ _ [maj min p]]
+  (let [version (apply str (clojure.string/join "." [maj min p]))
+        install-dir (format (default :install-dir-template) maj)]
+    {:install-strategy :archive
+     :install-dir install-dir
+     :install-source
+     {:url (maven-url (default :download-url-template) version)
+      :md5-url (maven-url (default :md5-url-template) version)
+      :unpack :tar
+      :tar-options "xz"}
+     :link [(format "%s/bin/mvn" install-dir)
+            "/usr/bin/mvn"]}))
 
 (crate/defplan settings [s {:keys [instance-id]}]
   (crate/assoc-settings :maven s {:instance-id instance-id}))
 
-(crate/defplan install [& {:keys [instance-id]}]
-  (install/install :maven instance-id))
+(crate/defplan install [ {:keys [instance-id]}]
+  (install/install :maven instance-id)
+  ;; create a link for maven when needed
+  (when-let [link (:link (crate/get-settings :maven))]
+    (let [[from to] link]
+      (actions/symbolic-link from to))))
+
+(defn server-spec
+  "Default spec for installing maven from archive.
+
+  version-vector -- a vector with 3 entries: major, minor and
+    patchlevel of the version of maven to install.
+
+    e.g. \"3.2.1\" => [3 2 1]"
+  [version-vector & {:keys [instance-id] :as options}]
+  (api/server-spec
+   :phases
+   {:settings (api/plan-fn (settings (archive-settings version-vector) options))
+    :install (api/plan-fn (install options))}
+   :default-phases [:install]))
