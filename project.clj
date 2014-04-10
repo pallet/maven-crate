@@ -5,11 +5,8 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :scm {:url "git@github.com:pallet/maven-crate.git"}
 
-  :dependencies [[org.clojure/clojure "1.4.0"]
-                 [com.palletops/pallet "0.8.0-SNAPSHOT"]]
-  :repositories {"sonatype"
-                 {:url "https://oss.sonatype.org/content/repositories/releases/"
-                  :snapshots false}}
+  :dependencies [[org.clojure/clojure "1.5.1" :scope "provided"]
+                 [com.palletops/pallet "0.8.0-RC.9" :scope "provided"]]
   :resource {:resource-paths ["doc-src"]
              :target-path "target/classes/pallet_crate/maven_crate/"
              :includes [#"doc-src/USAGE.*"]}
