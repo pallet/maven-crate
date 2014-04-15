@@ -33,7 +33,7 @@
   (api/server-spec
    :phases
    {:settings (api/plan-fn
-               (maven/settings (maven/package-settings version-spec) {}))
+               (crate/assoc-settings :maven (maven/package-settings version-spec) {}))
     :install (api/plan-fn (maven/install {}))
     :verify (api/plan-fn
              (actions/exec-checked-script

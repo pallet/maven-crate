@@ -132,8 +132,8 @@
      :link [(format "%s/bin/mvn" install-dir)
             "/usr/bin/mvn"]}))
 
-(crate/defplan settings [s {:keys [instance-id]}]
-  (crate/assoc-settings :maven s {:instance-id instance-id}))
+(crate/defplan settings [s options]
+  (crate/assoc-settings :maven s options))
 
 (crate/defplan install [ {:keys [instance-id]}]
   (install/install :maven instance-id)
@@ -145,13 +145,15 @@
 (defn server-spec
   "Default spec for installing maven from archive.
 
-  version-vector -- a vector with 3 entries: major, minor and
-    patchlevel of the version of maven to install.
-
-    e.g. \"3.2.1\" => [3 2 1]"
-  [version-vector & {:keys [instance-id] :as options}]
+  - settings: 
+   Use `archive-settings` to create the settings for installing from archive, and
+   `package-settings` for installing from package.
+  - options: nil for now.
+"
+  [settings & {:keys [instance-id] :as options}]
   (api/server-spec
    :phases
-   {:settings (api/plan-fn (settings (archive-settings version-vector) options))
+   {:settings (api/plan-fn
+               (crate/assoc-settings :maven settings options))
     :install (api/plan-fn (install options))}
    :default-phases [:install]))

@@ -15,13 +15,14 @@
    [pallet.script :refer [with-script-context]]
    [pallet.script-test :refer [is-true testing-script]]
    [pallet.script.lib :refer [package-manager-non-interactive]]
-   [pallet.test-env :refer [test-env *compute-service* *node-spec-meta*]]
+   [pallet.test-env :refer [teardown test-env *compute-service* *node-spec-meta*]]
    [pallet.test-env.project :as project]))
 
-(test-env test-nodes/node-specs project/project)
+(test-env test-nodes/node-specs project/project {:threads 10})
 
 (deftest ^:support default-settings
-  (let [spec (group-spec "pallet-maven"
+  (let [spec (group-spec
+                 (keyword (str "pallet-maven-" (name (:selector *node-spec-meta*))))
                :node-spec (:node-spec *node-spec-meta*)
                :count 1
                :phases
@@ -52,4 +53,6 @@
           (is session)
           (is (not (phase-errors session)))))
       (finally
-        (converge (assoc spec :count 0) :compute *compute-service*)))))
+        (teardown
+         (converge (assoc spec :count 0) :compute *compute-service*))
+        ))))
