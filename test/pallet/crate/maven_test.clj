@@ -1,45 +1,55 @@
 (ns pallet.crate.maven-test
   (:use
-   pallet.crate.maven
    clojure.test
    pallet.test-utils)
   (:require
-   [pallet.build-actions :as build-actions]
-   [pallet.action.exec-script :as exec-script]
-   [pallet.action.remote-directory :as remote-directory]
-   [pallet.core :as core]
-   [pallet.crate.automated-admin-user :as automated-admin-user]
-   [pallet.live-test :as live-test]
-   [pallet.phase :as phase]))
+   [pallet.api :as api]
+   [pallet.actions :as actions]
+   [pallet.crate :as crate]
+   [pallet.crate.maven :as maven]
+   [pallet.script.lib :as lib]))
 
-(deftest download-test
+#_(deftest download-test
   (is (= (first
           (build-actions/build-actions
            {}
-           (remote-directory/remote-directory
+           (actions/remote-directory
             "/opt/maven2"
-            :url (maven-download-url "2.2.1")
-            :md5 (maven-download-md5 "2.2.1")
+            :url (maven/maven-download-url "2.2.1")
+            :md5 (maven/maven-download-md5 "2.2.1")
             :unpack :tar :tar-options "xj"))))
       (first
        (build-actions/build-actions
         {}
-        (download :version "2.2.1")))))
+        (maven/download :version "2.2.1")))))
 
-(deftest live-test
-  (live-test/test-for
-   [image live-test/*images*]
-   (live-test/test-nodes
-    [compute node-map node-types]
-    {:maven
-     {:image image
-      :count 1
-      :phases {:bootstrap (phase/phase-fn
-                           (automated-admin-user/automated-admin-user))
-               :configure (phase/phase-fn
-                           (package))
-               :verify (phase/phase-fn
-                        (exec-script/exec-checked-script
-                         "check mvn command exists"
-                         (mvn -version)))}}}
-    (core/lift (:maven node-types) :phase :verify :compute compute))))
+(defn maven-test-spec [version-vec]
+  (api/server-spec
+   :extends []
+   :phases
+   {:configure (api/plan-fn (maven/install))}))
+
+(defn maven-package-test-spec [version-spec]
+  (api/server-spec
+   :phases
+   {:settings (api/plan-fn
+               (crate/assoc-settings :maven (maven/package-settings version-spec) {}))
+    :install (api/plan-fn (maven/install {}))
+    :verify (api/plan-fn
+             (actions/exec-checked-script
+              "check the 'mvn' command exists"
+              ("mvn" -version)))}))
+
+(defn maven-archive-test-spec [version-spec]
+  (let [[maj _ _] version-spec]
+    (api/server-spec
+     :extends [(maven/server-spec version-spec)]
+     :phases
+     {:verify
+      (api/plan-fn
+       (let [mvn-path (format "/opt/maven%s/bin/mvn" maj)]
+         (actions/exec-checked-script
+          (str "Verify mvn exists in " mvn-path)
+          (when-not (file-exists? ~mvn-path)
+            ("exit" 1)))))})))
+
