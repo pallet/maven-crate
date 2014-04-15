@@ -6,7 +6,7 @@
                  [ch.qos.logback/logback-classic "1.0.9"]]
   :plugins [[lein-set-version "0.3.0"]
             [lein-resource "0.3.2"]
-            [com.palletops/lein-pallet-crate "0.1.0"]
+            [com.palletops/lein-pallet-crate "RELEASE"]
             [com.palletops/lein-test-env "RELEASE"]
             [com.palletops/pallet-lein "0.8.0-alpha.1"]]}
  :doc {:dependencies [[com.palletops/pallet-codox "0.1.0"]]
